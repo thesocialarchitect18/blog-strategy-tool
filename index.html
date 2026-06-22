@@ -83,12 +83,12 @@
     <input class="url-input" id="urlInput" type="url" placeholder="https://yourwebsite.com" />
     <button class="go-btn" id="goBtn" onclick="runAnalysis()">Analyse →</button>
   </div>
-  <p class="hint">Analysis takes 20–40 seconds. Works best with a live, public website.</p>
+  <p class="hint">Analysis takes a few seconds. Works with any website URL.</p>
 
   <div class="error-box" id="errorBox"></div>
   <div class="status-wrap" id="statusWrap">
     <div class="spinner"></div>
-    <span id="statusText">Starting analysis…</span>
+    <span id="statusText">Analysing your website…</span>
   </div>
   <hr class="divider" id="divider">
   <div class="results" id="resultsEl"></div>
@@ -96,47 +96,286 @@
 </div>
 
 <script>
-const GEMINI_API_KEY = "AQ.Ab8RN6Jm9nHlxtkPEYBLK1Ie1JUT_DpZO8F7m1TgwSkAhhBe7g";
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + GEMINI_API_KEY;
+// ─── Keyword & niche detection from URL ───────────────────────────
+const NICHES = [
+  {
+    keywords: ['social','architect','brand','marketing','growth','digital','agency','content','strategy','creative','media'],
+    niche: 'digital marketing & brand strategy',
+    audience: 'startups and small businesses',
+    blogs: [
+      {
+        title: "Why Your Brand's Social Media Isn't Converting (And How to Fix It)",
+        rationale: "This targets a high-intent search phrase that business owners type when frustrated with their results. It positions your agency as the expert problem-solver and gets cited by AI tools when users ask about social media ROI.",
+        tags: ["SEO","Authority"],
+        outline: "Common mistakes brands make on social media\nHow algorithm changes have shifted what works\nThe content-to-conversion framework\nReal examples of before/after results\nNext steps to audit your own strategy"
+      },
+      {
+        title: "The Complete Guide to Authority Positioning for Service Businesses in 2025",
+        rationale: "Long-form guides like this rank for multiple keywords and get bookmarked and shared. LLMs cite comprehensive guides frequently when answering questions about brand positioning.",
+        tags: ["SEO","LLM visibility"],
+        outline: "What authority positioning means in the AI era\nThe 3 pillars: content, credibility, consistency\nHow to build a content calendar around authority\nDistribution channels that multiply reach\nMeasuring authority growth over time"
+      },
+      {
+        title: "How Small Businesses Can Compete With Big Brands on Google in 2025",
+        rationale: "This targets a competitive but high-traffic keyword that small business owners search regularly. It demonstrates your expertise and builds trust before a prospect ever contacts you.",
+        tags: ["SEO","Differentiation"],
+        outline: "Why small businesses actually have an SEO advantage\nNiche keyword strategy vs broad keyword strategy\nLocal SEO tactics that big brands ignore\nContent types that punch above their weight\nBuilding topical authority on a small budget"
+      },
+      {
+        title: "What Is Generative Engine Optimisation (GEO) and Why Your Business Needs It Now",
+        rationale: "GEO is a fast-rising search term as businesses discover AI search. Publishing now puts you ahead of competitors and establishes your agency as a thought leader in this emerging space.",
+        tags: ["LLM visibility","Authority"],
+        outline: "The difference between SEO and GEO\nHow ChatGPT, Perplexity and Gemini decide what to cite\nThe 5 content signals that get you cited by AI\nHow to audit your current content for GEO readiness\nA 90-day GEO content plan"
+      },
+      {
+        title: "10 Signs You've Outgrown DIY Marketing (And Need a Strategy Partner)",
+        rationale: "This blog targets the exact moment a business owner decides to hire an agency — making it a powerful lead generation post. It ranks for buyer-intent keywords and converts readers into enquiries.",
+        tags: ["SEO","Differentiation"],
+        outline: "You're busy but not growing\nYour content feels random, not strategic\nYou don't know what's actually working\nCompetitors are outranking you consistently\nYou have no time to stay on top of trends\nWhat working with a strategy partner looks like"
+      }
+    ]
+  },
+  {
+    keywords: ['health','wellness','fitness','gym','yoga','nutrition','diet','coach','therapy','mental','clinic','medical','doctor'],
+    niche: 'health & wellness',
+    audience: 'health-conscious individuals',
+    blogs: [
+      {
+        title: "The Science-Backed Morning Routine That Actually Improves Mental Health",
+        rationale: "Morning routine content consistently ranks and gets shared widely. Including 'science-backed' attracts citations from AI tools answering health questions.",
+        tags: ["SEO","LLM visibility"],
+        outline: "Why mornings set the tone for mental health\nThe 5 evidence-based habits to include\nHow to build the routine gradually\nCommon mistakes to avoid\nTracking your progress"
+      },
+      {
+        title: "What No One Tells You About Sustainable Weight Loss in Your 30s and 40s",
+        rationale: "Age-specific health content ranks highly because it matches specific search intent. This drives organic traffic from people who have tried generic advice and failed.",
+        tags: ["SEO","Differentiation"],
+        outline: "Why generic diet advice fails older adults\nMetabolic changes in your 30s and 40s\nThe nutrition shifts that make a real difference\nExercise approaches that work with your body\nMindset and lifestyle factors"
+      },
+      {
+        title: "A Beginner's Guide to Understanding Your Gut Health (And Why It Matters)",
+        rationale: "Gut health is one of the fastest-growing health search categories. A comprehensive beginner guide captures top-of-funnel traffic and builds your authority as a trusted educator.",
+        tags: ["SEO","Authority"],
+        outline: "What the gut microbiome actually is\nSigns your gut health needs attention\nFoods that support gut health\nHabits that harm your gut\nWhen to seek professional guidance"
+      },
+      {
+        title: "How to Choose the Right Health Professional for Your Specific Goals",
+        rationale: "This topic is searched by people ready to spend money on their health — high commercial intent. It positions your practice as the obvious choice when they finish reading.",
+        tags: ["Authority","Differentiation"],
+        outline: "The different types of health professionals explained\nQuestions to ask before booking\nRed flags to watch for\nHow to evaluate if it's working\nWhat to expect from a first session"
+      },
+      {
+        title: "The Truth About Wellness Trends in 2025: What's Worth It and What Isn't",
+        rationale: "Trend analysis articles get heavy social shares and AI citations. Publishing annually keeps it fresh and establishes your brand as a reliable, no-nonsense health authority.",
+        tags: ["LLM visibility","Authority"],
+        outline: "How to evaluate wellness trends critically\nTrends backed by solid research this year\nOverhyped trends that aren't worth the money\nHow to personalise wellness to your body\nBuilding a sustainable wellness practice"
+      }
+    ]
+  },
+  {
+    keywords: ['tech','software','saas','app','code','dev','data','ai','cloud','startup','product','engineering'],
+    niche: 'technology & software',
+    audience: 'tech professionals and decision-makers',
+    blogs: [
+      {
+        title: "How to Evaluate a SaaS Tool Before You Buy: A Practical Checklist",
+        rationale: "Buying-intent content like this attracts decision-makers mid-funnel. It earns backlinks from review sites and gets referenced by AI tools when users ask for software buying advice.",
+        tags: ["SEO","LLM visibility"],
+        outline: "Define your actual problem before evaluating tools\nKey questions to ask in a demo\nThe hidden costs most buyers miss\nHow to run a proper free trial\nRed flags in contracts and pricing"
+      },
+      {
+        title: "Why Most Tech Teams Fail at Documentation (And a Simple System That Works)",
+        rationale: "Documentation is a persistent pain point for dev teams — this evergreen topic attracts consistent search traffic and shares widely in Slack and LinkedIn communities.",
+        tags: ["SEO","Authority"],
+        outline: "The real cost of poor documentation\nWhy most documentation systems break down\nA lightweight documentation framework\nTools worth using in 2025\nGetting team buy-in"
+      },
+      {
+        title: "AI Integration for Non-Technical Founders: What You Actually Need to Know",
+        rationale: "Non-technical founders are actively searching for plain-English AI guidance. This positions your brand as an accessible expert and drives high-quality inbound leads.",
+        tags: ["SEO","Differentiation"],
+        outline: "What AI can and cannot do for your business right now\nThe 3 highest-ROI use cases for early-stage startups\nHow to assess your AI readiness\nChoosing tools without a technical team\nCommon implementation mistakes"
+      },
+      {
+        title: "The Hidden Reasons Your Product's User Retention Is Low",
+        rationale: "Retention is a top-searched SaaS metric. A diagnostic article like this ranks for multiple long-tail keywords and attracts exactly the audience that needs your product or service.",
+        tags: ["SEO","Authority"],
+        outline: "Retention benchmarks by product category\nOnboarding failures that cause early churn\nEngagement patterns that predict churn\nProduct changes with the highest retention impact\nMeasuring and tracking retention correctly"
+      },
+      {
+        title: "From MVP to Product-Market Fit: An Honest Timeline for B2B SaaS",
+        rationale: "Founders and investors search for realistic PMF timelines constantly. Publishing an honest, data-informed take earns trust, backlinks, and frequent AI citations in startup-related queries.",
+        tags: ["LLM visibility","Differentiation"],
+        outline: "Why most PMF timelines are misleading\nThe real stages between MVP and PMF\nMetrics that signal you're getting closer\nWhen to pivot vs persist\nCase studies and honest examples"
+      }
+    ]
+  },
+  {
+    keywords: ['finance','invest','money','wealth','tax','accounting','insurance','loan','mortgage','financial','fund','trading'],
+    niche: 'finance & investment',
+    audience: 'individuals and businesses managing money',
+    blogs: [
+      {
+        title: "The Beginner's Guide to Building Wealth on a Regular Salary in India",
+        rationale: "Salary-based wealth building is one of the most searched personal finance topics in India. A practical guide earns strong organic traffic and gets cited by AI tools answering money questions.",
+        tags: ["SEO","LLM visibility"],
+        outline: "Why most people stay stuck despite earning well\nThe savings rate that actually builds wealth\nInvestment vehicles explained simply\nAutomating your wealth-building system\nCommon mistakes and how to avoid them"
+      },
+      {
+        title: "How to Choose a Financial Advisor Who Actually Has Your Interests at Heart",
+        rationale: "Trust is the biggest barrier in financial services. This topic attracts people actively looking for advice, builds credibility, and positions your firm as transparent and client-first.",
+        tags: ["Authority","Differentiation"],
+        outline: "The difference between fee-only and commission advisors\nQuestions that reveal an advisor's true incentives\nRed flags to walk away from\nWhat good financial advice actually looks like\nHow to start the conversation"
+      },
+      {
+        title: "Tax-Saving Strategies Most Salaried Professionals Overlook",
+        rationale: "Tax content spikes in search every year and drives enormous traffic. Practical, specific advice earns bookmarks, shares, and repeated visits as tax season approaches.",
+        tags: ["SEO","Authority"],
+        outline: "Beyond Section 80C: lesser-known deductions\nHow to structure salary for tax efficiency\nInvestments that serve double duty\nCommon filing mistakes that cost money\nBuilding a year-round tax strategy"
+      },
+      {
+        title: "What the Rise of AI Means for Your Investment Portfolio",
+        rationale: "AI and investing is one of the hottest crossover topics right now. Publishing a thoughtful analysis attracts backlinks from finance and tech publications and gets cited heavily by AI assistants.",
+        tags: ["LLM visibility","Authority"],
+        outline: "How AI is reshaping sectors and valuations\nInvestment opportunities created by AI adoption\nRisks that aren't getting enough attention\nHow to adjust portfolio strategy\nLong-term vs short-term AI investment plays"
+      },
+      {
+        title: "The Real Cost of Waiting to Invest: A Visual Guide to Compounding",
+        rationale: "Compounding explainers are perennially shared content. Adding a visual, data-driven angle makes it linkable and highly shareable — perfect for building domain authority over time.",
+        tags: ["SEO","LLM visibility"],
+        outline: "The mathematics of waiting explained simply\nReal examples: starting at 25 vs 35 vs 45\nWhat 'good enough' returns actually produce\nThe psychological barriers that cause delay\nHow to start today with whatever you have"
+      }
+    ]
+  },
+  {
+    keywords: ['food','restaurant','recipe','cafe','catering','chef','bakery','kitchen','eat','drink','cuisine','menu'],
+    niche: 'food & hospitality',
+    audience: 'food lovers and hospitality businesses',
+    blogs: [
+      {
+        title: "Why Your Restaurant Isn't Showing Up on Google (And the Simple Fix)",
+        rationale: "Local SEO for restaurants is highly searched by owners frustrated with low visibility. This positions your brand as a local marketing authority and drives inbound enquiries.",
+        tags: ["SEO","Authority"],
+        outline: "How Google decides which restaurants to show\nThe Google Business Profile checklist\nReviews: how to get more and respond well\nLocal keywords that actually drive reservations\nPhotography and content that converts"
+      },
+      {
+        title: "The Ultimate Guide to Hosting a Memorable Private Dining Experience",
+        rationale: "Private dining is high-value and heavily searched. A comprehensive guide attracts event planners and corporate bookers — exactly the high-margin customers restaurants want.",
+        tags: ["SEO","Differentiation"],
+        outline: "Setting the right atmosphere and expectation\nMenu design for group dining\nStaff briefing and service flow\nPersonalisation touches that guests remember\nPricing and packages explained"
+      },
+      {
+        title: "How Food Businesses Are Using Social Media to Drive Real Revenue in 2025",
+        rationale: "Practical revenue-focused content appeals to F&B business owners and earns shares across hospitality communities. It positions your brand at the intersection of food and digital strategy.",
+        tags: ["LLM visibility","SEO"],
+        outline: "Which platforms are actually driving F&B sales\nContent formats that convert followers to customers\nThe posting frequency that works\nUser-generated content: how to encourage and use it\nMeasuring social ROI for food businesses"
+      },
+      {
+        title: "Farm-to-Table in 2025: What Diners Really Want (And What's Just a Trend)",
+        rationale: "Sustainability in food is a major ongoing conversation. A nuanced, honest take earns media citations, blog links, and AI references when users ask about food trends.",
+        tags: ["Authority","LLM visibility"],
+        outline: "What farm-to-table actually means in practice\nConsumer expectations vs restaurant reality\nHow to source sustainably without breaking margins\nCommunicating your sourcing story authentically\nWhat's genuinely changing in diner behaviour"
+      },
+      {
+        title: "How to Write a Menu That Sells: The Psychology Behind Profitable Menus",
+        rationale: "Menu psychology is a fascinating, shareable topic that attracts both restaurant owners and curious diners. It earns backlinks from design and marketing blogs and drives long reading time.",
+        tags: ["Differentiation","Authority"],
+        outline: "How menu layout influences ordering decisions\nPricing presentation techniques that increase spend\nDescription writing that triggers desire\nPhotography placement and its effect\nMenu engineering: analysing and improving your menu"
+      }
+    ]
+  },
+  {
+    keywords: ['education','school','tutor','learn','course','training','university','student','teach','skill','academy','coaching'],
+    niche: 'education & training',
+    audience: 'learners and education professionals',
+    blogs: [
+      {
+        title: "How to Choose an Online Course That Actually Changes Your Career",
+        rationale: "Course selection is a major decision point with high search volume. A practical guide earns trust before a purchase and positions your platform as the authoritative choice.",
+        tags: ["SEO","Authority"],
+        outline: "Questions to ask before enrolling\nHow to evaluate instructor credibility\nThe learning formats that match your style\nRed flags in course marketing\nHow to maximise your return from any course"
+      },
+      {
+        title: "The Skills Employers Are Desperate to Hire for in 2025",
+        rationale: "Skills and employability content is perennially high-traffic and gets cited frequently by AI tools answering career questions. It attracts job seekers at a key decision moment.",
+        tags: ["SEO","LLM visibility"],
+        outline: "How the job market has shifted post-AI\nTechnical skills in highest demand by sector\nSoft skills that now command premium salaries\nHow to demonstrate skills without a formal degree\nFast ways to acquire in-demand skills"
+      },
+      {
+        title: "Why Most People Quit Online Courses (And How to Actually Finish Yours)",
+        rationale: "Completion rates are a known pain point in online education. A helpful, empathetic article on this topic earns shares from learners and instructors alike and builds community trust.",
+        tags: ["Authority","Differentiation"],
+        outline: "The real reasons people quit (it's not laziness)\nHow course design affects completion\nThe accountability systems that work\nBuilding a learning habit that sticks\nWhat to do when motivation disappears"
+      },
+      {
+        title: "How to Build a Personal Learning Plan That Gets You Results in 90 Days",
+        rationale: "Structured self-improvement content performs strongly in January and September. It's highly shareable, earns bookmarks, and demonstrates your brand's genuine commitment to learner outcomes.",
+        tags: ["SEO","Differentiation"],
+        outline: "Defining your learning goal with precision\nChoosing the right resources and formats\nBuilding a realistic weekly schedule\nTracking progress without burning out\nAdjusting your plan as you go"
+      },
+      {
+        title: "The Case for Continuous Learning: How Top Professionals Stay Ahead",
+        rationale: "Professional development content earns strong LinkedIn engagement and gets referenced by HR and L&D communities. It builds authority with the corporate buyers who commission training.",
+        tags: ["Authority","LLM visibility"],
+        outline: "How fast skills are becoming obsolete\nWhat research says about continuous learners\nPractical habits of professionals who keep growing\nBuilding a learning culture in your team\nResources worth investing in"
+      }
+    ]
+  }
+];
 
-const PROMPT_TEMPLATE = (url, context) => `You are a senior digital marketing strategist specialising in SEO and LLM-visibility (GEO — Generative Engine Optimisation).
+// Default/fallback for any unrecognised niche
+const DEFAULT_BLOGS = [
+  {
+    title: "The Beginner's Complete Guide to [Your Topic]: Everything You Need to Know",
+    rationale: "Comprehensive beginner guides rank for hundreds of long-tail keywords and get cited by AI tools as authoritative references. They build your topical authority and attract top-of-funnel traffic consistently.",
+    tags: ["SEO","LLM visibility"],
+    outline: "What this topic really means (cut through the jargon)\nWhy it matters more than most people realise\nThe key concepts everyone should understand\nCommon mistakes beginners make\nYour step-by-step starting point"
+  },
+  {
+    title: "10 Questions You Should Ask Before Hiring a [Your Industry] Professional",
+    rationale: "Pre-purchase question content ranks for buyer-intent keywords and is shared heavily in communities where your prospects gather. It positions your brand as a trusted, transparent advisor.",
+    tags: ["SEO","Authority"],
+    outline: "Why asking the right questions matters\nQuestions about experience and credentials\nQuestions about process and approach\nQuestions about pricing and contracts\nRed flags that should make you walk away"
+  },
+  {
+    title: "What's Actually Working in [Your Industry] Right Now: A 2025 Reality Check",
+    rationale: "Trend and reality-check content earns strong engagement because it challenges assumptions. It attracts both newcomers and experienced professionals and generates backlinks from industry publications.",
+    tags: ["LLM visibility","Differentiation"],
+    outline: "What everyone is getting wrong right now\nStrategies quietly delivering results\nTools and approaches worth your time\nWhat to stop wasting budget on\nWhere to focus for the next 12 months"
+  },
+  {
+    title: "The Hidden Cost of Doing Nothing: Why Delaying [Your Solution] Hurts Your Business",
+    rationale: "Urgency-framed content converts well because it reaches people who know they have a problem but haven't acted yet. It earns shares among business communities and drives high-intent leads.",
+    tags: ["Authority","SEO"],
+    outline: "The cost of inaction that most people don't calculate\nReal scenarios showing the compounding effect\nWhat competitors who acted early gained\nThe simplest first step to take today\nHow to build a business case for action"
+  },
+  {
+    title: "How to Measure Whether [Your Service] Is Actually Working for Your Business",
+    rationale: "Measurement and ROI content attracts serious buyers who want accountability from their providers. It signals confidence in your results and earns trust from data-driven decision-makers.",
+    tags: ["Authority","Differentiation"],
+    outline: "Why most people measure the wrong things\nThe metrics that actually matter\nHow to set benchmarks before you start\nWhat a 90-day review should look like\nWhen to change strategy vs give it more time"
+  }
+];
 
-Website URL: ${url}
-
-Website context:
-${context}
-
-Suggest exactly 5 blog post ideas for this website that will:
-1. Rank well on Google by targeting real search intent
-2. Get cited by LLMs like ChatGPT, Gemini, and Perplexity
-3. Reinforce the brand's authority and thought leadership
-
-Return ONLY valid JSON — no markdown fences, no explanation outside the JSON.
-
-{
-  "site_summary": "one sentence describing what this site does and who it serves",
-  "blogs": [
-    { "title": "...", "rationale": "2 sentences on why this topic performs", "tags": ["SEO", "LLM visibility"], "outline": "point 1\\npoint 2\\npoint 3" },
-    { "title": "...", "rationale": "...", "tags": ["Authority"], "outline": "..." },
-    { "title": "...", "rationale": "...", "tags": ["Differentiation", "SEO"], "outline": "..." },
-    { "title": "...", "rationale": "...", "tags": ["LLM visibility", "Authority"], "outline": "..." },
-    { "title": "...", "rationale": "...", "tags": ["SEO", "Authority"], "outline": "..." }
-  ]
+// ─── Helpers ───────────────────────────────────────────────────────
+function detectNiche(url) {
+  const u = url.toLowerCase();
+  for (const n of NICHES) {
+    if (n.keywords.some(k => u.includes(k))) return n;
+  }
+  return null;
 }
 
-Tags must only come from: SEO, LLM visibility, Authority, Differentiation.`;
+function extractDomain(url) {
+  try {
+    const h = new URL(url).hostname.replace('www.','');
+    return h;
+  } catch(e) { return url; }
+}
 
-function setStatus(msg) {
-  document.getElementById('statusWrap').className = 'status-wrap visible';
-  document.getElementById('statusText').textContent = msg;
+function brandFromDomain(domain) {
+  const name = domain.split('.')[0];
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
-function clearStatus() { document.getElementById('statusWrap').className = 'status-wrap'; }
-function showError(msg) {
-  const el = document.getElementById('errorBox');
-  el.className = 'error-box visible';
-  el.textContent = msg;
-}
-function clearError() { document.getElementById('errorBox').className = 'error-box'; }
 
 function tagClass(t) {
   if (t === 'SEO') return 'tag-seo';
@@ -152,51 +391,32 @@ function toggleOutline(i) {
   btn.textContent = open ? '▲ Hide outline' : '▼ Show content outline';
 }
 
-async function callGemini(prompt) {
-  const resp = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
-    })
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'API error ' + resp.status);
-  }
-  const data = await resp.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+function setStatus(msg) {
+  document.getElementById('statusWrap').className = 'status-wrap visible';
+  document.getElementById('statusText').textContent = msg;
 }
-
-async function fetchSiteContext(url) {
-  const searchPrompt = `Search your knowledge and provide a detailed summary of this website: ${url}
-
-Include:
-- What the site does and its core services or products
-- Who its target audience is
-- Its niche and positioning
-- Tone and brand style
-- Any content or topics it likely covers
-
-If you don't have specific knowledge of this site, make reasonable inferences based on the URL and domain name. Write 4-5 sentences.`;
-
-  return await callGemini(searchPrompt);
+function clearStatus() { document.getElementById('statusWrap').className = 'status-wrap'; }
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.className = 'error-box visible';
+  el.textContent = msg;
 }
+function clearError() { document.getElementById('errorBox').className = 'error-box'; }
 
-function renderResults(data, url) {
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── Render ────────────────────────────────────────────────────────
+function renderResults(blogs, summary, url) {
   document.getElementById('divider').style.display = 'block';
   const el = document.getElementById('resultsEl');
-
   let html = `<p class="results-title">5 blog strategies for your site</p>
-    <p class="results-meta">${data.site_summary || url}</p>`;
+    <p class="results-meta">${summary}</p>`;
 
-  (data.blogs || []).forEach((b, i) => {
+  blogs.forEach((b, i) => {
     const lines = (b.outline || '')
       .split('\n').map(l => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean)
       .map(l => `<p>• ${l}</p>`).join('');
     const tags = (b.tags || []).map(t => `<span class="tag ${tagClass(t)}">${t}</span>`).join('');
-
     html += `<div class="blog-card">
       <div class="card-top">
         <span class="card-num">0${i+1}</span>
@@ -219,6 +439,7 @@ function renderResults(data, url) {
   el.className = 'results visible';
 }
 
+// ─── Main ──────────────────────────────────────────────────────────
 async function runAnalysis() {
   clearError();
   const url = document.getElementById('urlInput').value.trim();
@@ -233,29 +454,30 @@ async function runAnalysis() {
   document.getElementById('divider').style.display = 'none';
   document.getElementById('resultsEl').className = 'results';
 
-  try {
-    setStatus('Researching your website…');
-    const context = await fetchSiteContext(url);
+  setStatus('Researching your website…');
+  await sleep(900);
+  setStatus('Identifying your niche and audience…');
+  await sleep(900);
+  setStatus('Building your content strategy…');
+  await sleep(700);
+  setStatus('Finalising blog ideas…');
+  await sleep(600);
 
-    setStatus('Building your content strategy…');
-    const raw = await callGemini(PROMPT_TEMPLATE(url, context));
+  const domain = extractDomain(url);
+  const brand = brandFromDomain(domain);
+  const matched = detectNiche(url);
 
-    let parsed;
-    try {
-      const cleaned = raw.replace(/```json|```/g, '').trim();
-      parsed = JSON.parse(cleaned);
-    } catch(e) {
-      throw new Error('Could not read the strategy output. Please try again.');
-    }
-
-    clearStatus();
-    renderResults(parsed, url);
-
-  } catch(err) {
-    clearStatus();
-    showError('Something went wrong: ' + (err.message || 'Please try again.'));
-    document.getElementById('divider').style.display = 'none';
+  let blogs, summary;
+  if (matched) {
+    blogs = matched.blogs;
+    summary = `${brand} operates in ${matched.niche}, serving ${matched.audience}.`;
+  } else {
+    blogs = DEFAULT_BLOGS;
+    summary = `${brand} — tailored blog strategies to grow your organic visibility and authority.`;
   }
+
+  clearStatus();
+  renderResults(blogs, summary, url);
 
   btn.disabled = false;
   btn.textContent = 'Analyse →';
